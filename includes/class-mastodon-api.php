@@ -1157,6 +1157,8 @@ class Mastodon_API {
 
 		// get the attachments for the post.
 		$attachments = get_attached_media( '', $post->ID );
+
+		// Get image attachments from the post content.
 		$p = strpos( $data['content'], '<!-- wp:image' );
 		while ( false !== $p ) {
 			$e = strpos( $data['content'], '<!-- /wp:image', $p );
@@ -1210,6 +1212,49 @@ class Mastodon_API {
 			}
 			$data['content'] = $this->normalize_whitespace( substr( $data['content'], 0, $p ) . substr( $data['content'], $e + 18 ) );
 			$p = strpos( $data['content'], '<!-- wp:image' );
+		}
+
+		// Get video attachments from the post content.
+		$p = strpos( $data['content'], '<!-- wp:video' );
+		while ( false !== $p ) {
+			$e = strpos( $data['content'], '<!-- /wp:video', $p );
+			if ( ! $e ) {
+				break;
+			}
+			$video = substr( $data['content'], $p, $e - $p + 19 );
+			if ( preg_match( '#<video(?:\s+controls|\s+src="(?P<url>[^"]+)"|\s+width="(?P<width>\d+)"|\s+height="(?P<height>\d+)"|\s+class="(?P<class>[^"]+)|\s+.*="[^"]+)+\></video\>(?:<figcaption\s+class="(?P<caption_class>[^"]+)">(?P<alt_text>.*)</figcaption>)*#i', $video, $video_tag ) ) {
+				if ( ! empty( $video_tag['url'] ) ) {
+					$url = $video_tag['url'];
+					$media_id = crc32( $url );
+					$video_meta = array();
+
+					if ( ! empty( $video_tag['width'] ) && ! empty( $video_tag['height'] ) ) {
+						$video_meta['original'] = array(
+							'width'  => intval( $video_tag['width'] ),
+							'height' => intval( $video_tag['height'] ),
+							'size'   => $video_tag['width'] . 'x' . $video_tag['height'],
+							'aspect' => $video_tag['width'] / max( 1, $video_tag['height'] ),
+						);
+					}
+
+					if ( !empty( $video_tag['alt_text'] ) ) {
+						$video_meta["descriptioun"] = $video_tag['alt_text'];
+					}
+
+					$data['media_attachments'][] = array(
+						'id'                 => strval( $media_id ),
+						'type'               => 'video',
+						'url'                => $url,
+						'preview_remote_url' => $url,
+						'remote_url'         => $url,
+						'preview_url'        => $url,
+						'text_url'           => $url,
+						'meta'               => $video_meta,
+					);
+				}
+			}
+			$data['content'] = $this->normalize_whitespace( substr( $data['content'], 0, $p ) . substr( $data['content'], $e + 18 ) );
+			$p = strpos( $data['content'], '<!-- wp:video' );
 		}
 
 		foreach ( $attachments as $attachment_id => $attachment ) {
