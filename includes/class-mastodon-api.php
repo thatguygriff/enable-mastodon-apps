@@ -1111,6 +1111,13 @@ class Mastodon_API {
 			$reblogged = false;
 		}
 
+		// Lookup the source url
+		$external_id = get_post_meta( $post->ID, 'external-id' );
+		$original_url = null;
+		if ($external_id && count($external_id) > 0) {
+			$original_url = reset($external_id);
+		}
+
 		$data = array_merge(
 			array(
 				'id'                     => strval( $post->ID ),
@@ -1122,7 +1129,7 @@ class Mastodon_API {
 				'visibility'             => 'publish' === $post->post_status ? 'public' : 'unlisted',
 				'language'               => null,
 				'uri'                    => $post->guid,
-				'url'                    => null,
+				'url'                    => $original_url,
 				'replies_count'          => 0,
 				'reblogs_count'          => 0,
 				'favourites_count'       => 0,
